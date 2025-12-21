@@ -1,8 +1,8 @@
 defmodule FcExCp.Firecracker do
-  @callback boot(vm_id :: String.t(), tenant :: String.t() | nil, spec :: Map.t()) ::
+  @callback boot(vm_id :: String.t(), tenant :: String.t() | nil, spec :: map()) ::
               :ok | {:error, term()}
 
-  @callback warm_up(vm_id :: String.t(), spec :: Map.t()) :: :ok | {:error, term()}
+  @callback warm_up(vm_id :: String.t(), spec :: map()) :: :ok | {:error, term()}
 
   @callback stop(vm_id :: String.t()) :: :ok
 end
@@ -14,7 +14,9 @@ defmodule FcExCp.Firecracker.Mock do
 
   @impl true
   def boot(vm_id, tenant, spec) do
-    Logger.info("[MOCK] boot VM #{vm_id} tenant=#{inspect(tenant)} lifecycle=#{spec["lifecycle"]}")
+    Logger.info(
+      "[MOCK] boot VM #{vm_id} tenant=#{inspect(tenant)} lifecycle=#{spec["lifecycle"]}"
+    )
 
     # Pretend boot time
     Process.sleep(200)

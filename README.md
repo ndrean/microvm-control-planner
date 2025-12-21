@@ -1,4 +1,4 @@
-# Elixir based Firecracker Control Planner
+# Elixir based microVM Control Planner
 
 DRAFT
 [Building...]
@@ -88,7 +88,31 @@ curl -X POST http://localhost:8088/vms \
 > [!WARNING]
 > On OSX, without an M3, you cannot run `Firecracker` (even with `lima`).
 
-Control Plan Manager (k8 like):
+## Configuration
+
+### Backend Selection
+
+FcExCp supports both Firecracker (Linux x86_64) and Cloud Hypervisor (Linux/macOS, ARM64).
+
+Configure the backend via environment variable:
+
+```sh
+# Use Firecracker (Linux x86_64 only)
+FC_BACKEND=firecracker
+
+# Use Cloud Hypervisor (cross-platform)
+FC_BACKEND=cloud_hypervisor
+
+# Then start
+FC_BACKEND=xxx  iex -S mix
+```
+
+If not set, the backend is auto-detected:
+
+- macOS → Cloud Hypervisor
+- Linux → Firecracker
+
+## Control Plan Manager (k8 like)
 
 ```mermaid
 flowchart TD
