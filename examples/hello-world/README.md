@@ -13,6 +13,7 @@ mix fc.build \
 ```
 
 This will:
+
 1. Build the Dockerfile
 2. Download Alpine kernel (~8 MB)
 3. Create a 512MB rootfs with busybox httpd
@@ -37,6 +38,7 @@ Add to `config/desired_vms.exs`:
 ```
 
 Then start:
+
 ```bash
 iex -S mix
 ```
@@ -91,17 +93,20 @@ curl http://172.16.0.2:8080
 4. **Small footprint** - ~136 MB total (8 MB kernel + 128 MB VM)
 
 Compare this to running the same thing in Docker:
+
 - Docker: App + containerd + VM kernel = more overhead
 - FcExCp: App + VM kernel = simpler, lighter
 
 ## Next Steps
 
 Try modifying the Dockerfile:
+
 - Add Node.js and run a real app
 - Add Python and run Flask
 - Add your own application
 
 Then rebuild:
+
 ```bash
 mix fc.build --dockerfile examples/hello-world/Dockerfile --output images/hello-world
 ```

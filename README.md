@@ -26,7 +26,7 @@ The control planner is architectured with GenServers;
 The `Reconciler` architecture is borowed from k8 in very few lines of code.
 The "warm pool" is also borowed from AWS lambda provisionned machines
 
-**What is a warm VM**? Its role is to hide boot latency. A warm VM is a created and booted VM but not running. It is created per unique desired spec that is not a job everytime a VM of this type is running (within limits). The _specs/contract_ you pass that will defined what the VM will run.
+**What is a warm VM**? It is a VM that is booted but not yet running. Its role is to hide boot latency. A warm VM is a created and booted VM but not running. It is created per unique desired spec that is not a job everytime a VM of this type is running (within limits). The _specs/contract_ you pass that will defined what the VM will run.
 
 **What are specs**? A VM is designed via its "rootfs" + "kernel args" + "environment/config injection". These elements are referenced in the specs that you will pass to `Firecracker` (FC).
 

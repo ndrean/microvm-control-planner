@@ -160,8 +160,11 @@ defmodule FcExCp.VM do
       # Wait for app readiness
       :ok = wait_http_200!("http://#{st.ip}:#{st.fc_port}/health", 15_000)
 
-      # Register with proxy
-      Proxy.register(st.tenant, st.ip, st.fc_port)
+      # Only register with proxy if NOT a warm VM
+      # Warm VMs (tenant: :warm) should not be discoverable by load balancer
+      unless st.tenant == :warm do
+        Proxy.register(st.tenant, st.ip, st.fc_port)
+      end
 
       boot_duration_ms = System.monotonic_time(:millisecond) - boot_start
 
@@ -242,10 +245,16 @@ defmodule FcExCp.VM do
   def handle_call({:update_tenant, tenant}, _from, st) do
     # When a warm VM is attached to a job, update tenant and mark as running
     Logger.info("VM #{st.id} updating tenant from #{inspect(st.tenant)} to #{inspect(tenant)}")
+
+    old_tenant = st.tenant
     st = %{st | tenant: tenant, status: :running}
 
-    # Re-register with proxy under new tenant
-    Proxy.deregister(st.tenant)
+    # Only deregister if old tenant was registered (not :warm)
+    unless old_tenant == :warm do
+      Proxy.deregister(old_tenant)
+    end
+
+    # Register with proxy - warm VMs become discoverable when assigned to tenant
     Proxy.register(tenant, st.ip, st.fc_port)
 
     {:reply, :ok, st}
