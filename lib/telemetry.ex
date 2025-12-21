@@ -9,7 +9,7 @@ defmodule FcExCp.TelemetryPoller do
   - Firecracker metrics (via metrics file)
   """
   require Logger
-  alias FcExCp.{Metrics, TelemetryEvents}
+  alias FcExCp.{Metrics, PoolManager, TelemetryEvents}
 
   # def start_link(_) do
   #   measurements = [
@@ -57,7 +57,7 @@ defmodule FcExCp.TelemetryPoller do
 
   def collect_scheduler_state do
     try do
-      {:ok, stats} = FcExCp.Manager.stats()
+      {:ok, stats} = PoolManager.stats()
       TelemetryEvents.scheduler_tick(stats)
 
       # Also emit individual gauge metrics

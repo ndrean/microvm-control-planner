@@ -7,6 +7,7 @@ defmodule FcExCp.TelemetryHandlers do
   """
 
   require Logger
+  alias FcExCp.{Metrics, PoolManager}
 
   @doc """
   Attach all debug handlers to print telemetry events to console.
@@ -193,20 +194,20 @@ defmodule FcExCp.TelemetryHandlers do
   def get_scheduler_stats do
     # This would need a separate handler to collect and store state
     # For now, call Manager directly:
-    FcExCp.Manager.stats()
+    PoolManager.stats()
   end
 
   @doc """
   Get current host metrics from emitted metrics.
   """
   def get_host_metrics do
-    FcExCp.Metrics.host_metrics()
+    Metrics.host_metrics()
   end
 
   @doc """
   Get current runtime metrics from emitted metrics.
   """
   def get_runtime_metrics do
-    FcExCp.Metrics.snap()
+    Metrics.snap()
   end
 end

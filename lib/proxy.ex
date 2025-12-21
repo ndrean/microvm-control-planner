@@ -14,7 +14,7 @@ defmodule FcExCp.Proxy do
       :caddy ->
         # implement Caddy admin API changes here.
         # Keeping it as stub because the exact JSON depends on config strategy.
-        Logger.info("Proxy register stub (caddy): tenant=#{inspect(_tenant)} -> #{_ip}:#{_port}")
+        # Logger.info("Proxy register stub (caddy): tenant=#{inspect(tenant)} -> #{_ip}:#{_port}")
         :ok
     end
   end
@@ -25,7 +25,7 @@ defmodule FcExCp.Proxy do
         :ok
 
       :caddy ->
-        Logger.info("Proxy deregister stub (caddy): tenant=#{inspect(_tenant)}")
+        # Logger.info("Proxy deregister stub (caddy): tenant=#{inspect(_tenant)}")
         :ok
     end
   end

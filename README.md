@@ -1,182 +1,99 @@
-# Elixir based Firecracker Control Plan
+# Elixir based Firecracker Control Planner
 
 [Working on...]
 
-Build a Control Plan Manager in Elixir for Firecrackers microVMs.
+POC of a Control Planner in Elixir for Firecrackers **microVMs**.
 
-Elixir makes lots of sense for this project.
+The Control Planner is itself a microVM. It allows you to run dynamically microVMs based on a declarative configuration.
 
 ```mermaid
 flowchart TD
     A[External<br> HTTP, WS, CLI] --> LB(Load Balancer)
-    LB -->E[[Elixir based Firecracker Control Plan Manager]]
+    LB -->E[[Elixir based Firecracker Control Planner]]
     E  --> |Unix domain sockets <br>local only|F(Firecracker processes<br>1 socket per Tenant µVM<br>- minimal Linux<br>- web server<br>- app)
 ```
 
-Produce 3 files:
+Elixir makes a lot of sense for this project and really shines because of built-in concurrency and state management and supervision which makes the orchestration, control and coordination "easy".
 
-- vmlinux (Linux kernel image)
-- rootfs.ext4 (disk)
-- vmconfig.json (Firecracker config via API)
-  Host launches a VM:
+The control planner is architectured with GenServers;
 
-```json
-{
-  "kernel_image_path": "vmlinux",
-  "rootfs_path": "rootfs.ext4",
-  "vcpu_count": 2,
-  "mem_size_mib": 512
-}
+- the `DesiredStateStore` (persistent state),
+- the executor `PoolManager` (runtime state),
+- the control loop `Reconciler` (to ensure the runtime state matches the desired state),
+- the VM supervisor `VMSup`: each VM is a dynamically supervised GenServer.
+
+The `Reconciler` architecture is borowed from k8 in very few lines of code.
+The "warm pool" is also borowed from AWS lambda provisionned machines
+
+**What is a warm VM**? Its role is to hide boot latency. A warm VM is a created and booted VM but not running. It is created per unique desired spec that is not a job everytime a VM of this type is running (within limits). The _specs/contract_ you pass that will defined what the VM will run.
+
+**What are specs**? A VM is designed via its "rootfs" + "kernel args" + "environment/config injection". These elements are referenced in the specs that you will pass to `Firecracker` (FC).
+
+An example of a config:
+
+```elixir
+[
+    %{
+        "rootfs": "rootfs-web.ext4",
+        "kernel": "vmlinux",
+        "cmd": ["/app/bin/server"],
+        "env": %{"MIX_ENV": "prod", "SECRET_KEY_BASE": "xyz..."},
+        "resources": %{"vcpu": 2, "mem_mb": 512},
+        "lifecycle": "service" # or "job" or "deamon"
+        warm_pool: %{min: 1,  max: 3 }
+    },
+    {...}
+]
 ```
 
-## MicroVM on OSX
+You have a mapping between the fields in the config and FC.
+The warm_pool settings will be respected by the Reconciler process.
+
+**How does this work**? On startup:
+
+- DesiredStateStore loads your @desired_state (the config file)
+- Reconciler
+  - reads the desired states and the current state.
+  - detects missing job: Calls PoolManager.attach("web-app-1", spec)
+- PoolManager checks warm pool:
+  - Computes hash of spec
+  - Looks for warm VM with matching hash
+  - If found: assigns it to the job, schedules new warm VM
+  - If not found: returns :no_warm_vm_available error
+- Reconciler ensures warm VMs: For each unique spec in desired state, ensures one warm VM exists
+
+For example, we want a local database (to the VM). During the VM setup, if it is in the VM specs, the local database will be setup, and then receive all the changes in the database in the background (via a bridge-server in another microVM). The VM will be ready to start with an up-to-date local replica database.
+
+**Dynamic setup**: you have an endpoint to modify the desired state: add or remove VMs.
+
+You can do:
 
 ```sh
-brew install lima
+curl -X POST http://localhost:8088/vms \
+-H 'content-type:application/json' \
+-d '{"job_id": "j3","tenant": "j3","spec": {"role": "web", "cmd": ["/app/bin/server"], "env": {"PORT": 4000, "SECRET_KEY_BASE": "xxx..."}}}'
 ```
 
-Then autodetect and chose `ubuntu`:
+> [!WARNING]
+> On OSX, without an M3, you cannot run `Firecracker` (even with `lima`).
 
-```sh
-limactl start --name=microvm --cpus=4 --memory=8 \
-  --vm-type=qemu \
-  template://ubuntu
-```
+Control Plan Manager (k8 like):
 
-Or manual setup with `aarch64` architecture (the command `uname -m` should return `arm64`):
-
-```sh
-cat > microvm.yaml << 'EOF'
-# microvm-apple-silicon.yaml - For Apple Silicon Macs
-images:
-  - location: "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-arm64.img"
-    arch: "aarch64"
-arch: "aarch64"  # Crucial for Apple Silicon!
-cpus: 4
-memory: "8GiB"
-disk: "50GiB"
-mounts:
-  - location: "~"
-    writable: true
-ssh:
-  localPort: 60022
-  forwardAgent: true
-# Use vz for better performance on macOS Ventura+
-# Use qemu for wider compatibility
-vmType: "qemu"
-provision:
-  - mode: system
-    script: |
-      echo "=== Setting up Ubuntu ARM64 for microVMs ==="
-      apt-get update
-      apt-get install -y qemu-system-aarch64 qemu-utils \
-        libvirt-daemon-system libvirt-clients git curl wget \
-        build-essential pkg-config libssl-dev
-      usermod -a -G kvm,libvirt $USER
-      echo "=== ARM64 KVM setup complete ==="
-  - mode: user
-    script: |
-      echo "=== Setting up ARM64 environment ==="
-      mkdir -p ~/microvm-lab/{kernels,rootfs,scripts,configs}
-      echo "=== Ready for ARM64 microVMs ==="
-EOF
-```
-
-```sh
-limactl start ./microvm.yaml
-```
-
-```sh
-limactl list
-NAME       STATUS     SSH                VMTYPE    ARCH       CPUS    MEMORY    DISK      DIR
-microvm    Running    127.0.0.1:52506    qemu      aarch64    4       4GiB      100GiB    ~/.lima/microvm
-```
-
-To stop and delete:
-
-```sh
-limactl stop microvm
-limactl delete microvm
-```
-
-To open the shell and install the virtualization tool: `qemu-kvm`
-
-```sh
-limactl shell microvm
-
-sudo apt-get update && \
-sudo apt-get install -y && \
-    qemu-system-arm && \        # ARM system emulator
-    qemu-system-aarch64 && \    # AArch64 specific
-    qemu-utils && \             # Disk utilities
-    qemu-system-data&&  \       # Firmware and data
-    qemu-system-common       # Common files
-```
-
-Checks:
-
-```sh
-uname -m #<-- host
-# aarch64
-uname -a #<-- VM
-Linux lima-microvm 6.17.0-6-generic #6-Ubuntu SMP PREEMPT_DYNAMIC Tue Oct  7 14:22:06 UTC 2025 aarch64 GNU/Linux
-hostname
-# lima-microvm
-cat /etc/os-release
-# PRETTY_NAME="Ubuntu 25.10" .....
-
-which qemu-system-aarch64
-#/usr/bin/qemu-system-aarch64
-```
-
-Install Firecracker:
-
-```sh
-mkdir -p ~/labs
-cd ~/labs
-
-FC_VERSION="v1.7.0"
-curl -fsSL -o firecracker.tar.gz \
-  "https://github.com/firecracker-microvm/firecracker/releases/download/${FC_VERSION}/firecracker-${FC_VERSION}-aarch64.tgz"
-
-# Extract
-tar -xzf firecracker.tar.gz
-sudo cp release-${FC_VERSION}-aarch64/firecracker-${FC_VERSION}-aarch64 /usr/local/bin/firecracker
-sudo chmod +x /usr/local/bin/firecracker
-
-# Verify
-firecracker --version
-# Firecracker v1.7.0
-```
-
-```txt
-sock = "/tmp/fc-#{vm_id}.sock"
-
-Firecracker.HTTP.put(sock, "/machine-config", %{
-  vcpu_count: 2,
-  mem_size_mib: 512,
-  smt: false
-})
-
-Firecracker.HTTP.put(sock, "/boot-source", %{
-  kernel_image_path: kernel,
-  boot_args: "console=ttyS0 reboot=k panic=1 pci=off init=/init"
-})
-
-Firecracker.HTTP.put(sock, "/drives/rootfs", %{
-  drive_id: "rootfs",
-  path_on_host: rootfs,
-  is_root_device: true,
-  is_read_only: false
-})
-
-Firecracker.HTTP.put(sock, "/network-interfaces/eth0", %{
-  iface_id: "eth0",
-  guest_mac: mac,
-  host_dev_name: tap
-})
-
-Firecracker.HTTP.put(sock, "/actions", %{
-  action_type: "InstanceStart"
-})
+```mermaid
+flowchart TD
+    DS(Desired State Store<br>
+    - contains the specs of the entities to run in a µVM
+    - SQLite persistence of intents) --> R(Reconciler<br>
+    - ensure **warm-up** strategy
+    - Policy **convergence loop**
+    - Reads DesiredStateStore
+    - Compares with reality PoolManager.actual_ids
+    - Calls PoolManager.attach and PoolManager.detach)
+    R --> P(PoolManager PM<br>
+    - Executor
+    - communicates with FC to run VMs
+    - Holds the VMs state)
+    P --> FC(Firecracker FC<br>
+    - Executes VMs operations
+    - communciates via unix_socket with PM)
 ```

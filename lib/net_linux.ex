@@ -1,4 +1,4 @@
-defmodule FcExCp.Net do
+defmodule FcExCp.NetLinux do
   @moduledoc """
   Host networking
   This is the “real TAP bridge + NAT” part.
