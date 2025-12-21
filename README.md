@@ -1,6 +1,7 @@
 # Elixir based Firecracker Control Planner
 
-[Working on...]
+DRAFT
+[Building...]
 
 POC of a Control Planner in Elixir for Firecrackers **microVMs**.
 
@@ -29,7 +30,7 @@ The "warm pool" is also borowed from AWS lambda provisionned machines
 
 **What are specs**? A VM is designed via its "rootfs" + "kernel args" + "environment/config injection". These elements are referenced in the specs that you will pass to `Firecracker` (FC).
 
-An example of a config:
+An example of a config file:
 
 ```elixir
 [
@@ -49,7 +50,17 @@ An example of a config:
 You have a mapping between the fields in the config and FC.
 The warm_pool settings will be respected by the Reconciler process.
 
+> [TODO] filewatcher?
+
 **How does this work**? On startup:
+
+Application starts
+└─> DesiredStateStore.init/1
+└─> handle_continue(:put_desired_state)
+└─> load_config_file()
+└─> Read config/desired_vms.exs
+└─> Insert into SQLite
+└─> Reconciler picks up and starts VMs
 
 - DesiredStateStore loads your @desired_state (the config file)
 - Reconciler
