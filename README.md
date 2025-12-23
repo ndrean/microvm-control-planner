@@ -10,7 +10,7 @@ The Control Planner is itself a microVM. It allows you to run dynamically microV
 flowchart TD
     A[External<br> HTTP, WS, CLI] --> LB(Load Balancer)
     LB -->E[[Elixir Control Planner]]
-    E  --> |Unix domain sockets <br>local only|F(FC or CH processes<br>1 socket per Tenant µVM<br>- minimal Linux<br>- web server<br>- app)
+    E  --> |Unix sockets|F(FC or CH processes<br>1 socket per Tenant µVM<br>- minimal Linux<br>- web server<br>- app)
 ```
 
 Elixir makes a lot of sense for this project and really shines because of built-in concurrency and state management and supervision which makes the orchestration, control and coordination "easy".
@@ -21,6 +21,8 @@ The control planner is architectured with GenServers and based on Kubernetes arc
 - the executor `PoolManager` (runtime state),
 - the control loop `Reconciler` (to ensure the runtime state matches the desired state),
 - the VM supervisor `VMSup`: each VM is a dynamically supervised GenServer.
+
+IT communicates with the backend (Firecracker or Cloud-Hypervisor) with a _Unix socket HTTP client_ (the _http.ex_ module).
 
 The "warm pool" is also borowed from AWS lambda provisionned machines
 

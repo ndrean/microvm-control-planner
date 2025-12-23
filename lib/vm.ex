@@ -20,6 +20,7 @@ defmodule FcExCp.VM do
   require Logger
 
   alias FcExCp.Firecracker.HTTP, as: FCH
+  alias FcExCp.CloudHypervisor.HTTP, as: CHH
   alias FcExCp.{Config, Net, Proxy, TelemetryEvents}
 
   @type backend :: :firecracker | :cloud_hypervisor
@@ -280,15 +281,39 @@ defmodule FcExCp.VM do
       Port.close(st.fc_port_handle)
     end
 
-    # Kill hypervisor process if still running
-    if st.fc_pid && Process.alive?(st.fc_pid) do
-      System.cmd("kill", ["-9", to_string(st.fc_pid)])
-    end
+    # Shutdown hypervisor gracefully if possible
+    shutdown_hypervisor(st)
 
     Net.delete_tap(st.tap, st.backend)
     cleanup_files(st)
 
     :ok
+  end
+
+  defp shutdown_hypervisor(%{backend: :cloud_hypervisor} = st) do
+    # Try graceful shutdown via HTTP API first
+    case CHH.shutdown(st.api_sock) do
+      {:ok, %{status: s}} when s in 200..299 ->
+        Logger.debug("Cloud Hypervisor graceful shutdown successful")
+        # Wait briefly for process to exit
+        Process.sleep(500)
+
+      {:error, _reason} ->
+        Logger.debug("Cloud Hypervisor API shutdown failed, using kill")
+        force_kill(st)
+    end
+  end
+
+  defp shutdown_hypervisor(%{backend: :firecracker} = st) do
+    # Firecracker doesn't have a graceful shutdown endpoint
+    # Just kill the process
+    force_kill(st)
+  end
+
+  defp force_kill(st) do
+    if st.fc_pid && Process.alive?(st.fc_pid) do
+      System.cmd("kill", ["-9", to_string(st.fc_pid)])
+    end
   end
 
   defp cleanup_files(st) do
