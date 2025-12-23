@@ -92,6 +92,11 @@ If not set, the backend is auto-detected:
 - macOS → Cloud Hypervisor
 - Linux → Firecracker
 
+[<img width="372" height="324" alt="Screenshot 2025-12-23 at 07 37 11" src="https://github.com/user-attachments/assets/cc8cd98e-0e56-49eb-821c-9130fc92361e" />](https://github.com/firecracker-microvm/firecracker)
+
+[<img width="327" height="393" alt="Screenshot 2025-12-23 at 07 35 18" src="https://github.com/user-attachments/assets/8bdadac5-b0bb-4b6c-8e5f-809ceeb5ec1c" />](https://github.com/cloud-hypervisor/cloud-hypervisor/blob/main/docs/api.md)
+
+
 ## Control Plan Manager (k8 like)
 
 ```mermaid
