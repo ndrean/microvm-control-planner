@@ -14,34 +14,39 @@ defmodule FcExCp.Web.Router do
   # - {"vm_id":"job_1","tenant":"job_1","spec":{...}}
   # - {"tenant":"job_1","spec":{...}}  (back-compat)
   post "/vms" do
-    job_id = conn.body_params["job_id"] || conn.body_params["vm_id"] || conn.body_params["tenant"] || generate_vm_id()
+    job_id =
+      conn.body_params["job_id"] || conn.body_params["vm_id"] || conn.body_params["tenant"] ||
+        generate_vm_id()
+
     tenant = conn.body_params["tenant"] || job_id
     spec = conn.body_params["spec"] || %{}
 
-    case {job_id, tenant} do
-      {id, t} when is_binary(id) and byte_size(id) > 0 and is_binary(t) and byte_size(t) > 0 ->
+    case {job_id, tenant, spec} do
+      {id, t, s}
+      when is_binary(id) and byte_size(id) > 0 and is_binary(t) and byte_size(t) > 0 and is_map(s) ->
         :ok = DesiredStateStore.put(id, t, spec)
 
         case PoolManager.attach(id, spec) do
           {:ok, info} ->
-            # Warm VM was available - instant provisioning
+            # Provisioned from warm capacity or a cold boot.
             json(conn, 201, info)
 
-          {:error, :no_warm_vm_available} ->
-            # No warm VM yet, reconciler will provision it
+          {:error, :capacity_exhausted} ->
             json(conn, 202, %{
               job_id: id,
               status: "accepted",
-              message: "VM scheduled, reconciler will provision when warm VM is ready"
+              message: "VM scheduled, reconciler will provision when capacity is available"
             })
 
           {:error, reason} ->
-            # Other error (shouldn't happen in normal operation)
+            # Desired state is retained so the reconciler can retry.
             json(conn, 503, %{error: inspect(reason)})
         end
 
       _ ->
-        json(conn, 400, %{error: "missing job_id (or vm_id/tenant)"})
+        json(conn, 400, %{
+          error: "job_id and tenant must be non-empty strings; spec must be an object"
+        })
     end
   end
 

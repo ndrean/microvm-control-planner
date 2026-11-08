@@ -18,10 +18,12 @@
      lifecycle: "service",
      # Warm pool configuration
      warm_pool: %{
-       min: 1,  # Always keep at least 1 warm VM ready
-       max: 3   # Cap at 3 to limit resource usage
+       # Always keep at least 1 warm VM ready
+       min: 1,
+       # Cap at 3 to limit resource usage
+       max: 3
      }
-   }},
+   }}
 
   # Example: Database-heavy analytics service
   # Uncomment to enable:

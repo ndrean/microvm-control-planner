@@ -130,12 +130,47 @@ Application starts
 - Reconciler picks up and starts VMs
 
 - DesiredStateStore loads the desired_state
-- Reconciler
-  - reads the desired states and the current state.
-  - detects missing job: Calls PoolManager.attach("web-app-1", spec)
-- PoolManager checks warm pool:
-  - Computes hash of spec
-  - Looks for warm VM with matching hash
-  - If found: assigns it to the job, schedules new warm VM
-  - If not found: returns :no_warm_vm_available error
-- Reconciler ensures warm VMs: For each unique spec in desired state, ensures one warm VM exists
+- Reconciler reads desired state and removes assignments that are no longer desired.
+- PoolManager attaches each desired workload:
+  - An unchanged spec and tenant keep the existing VM.
+  - A changed spec or tenant replaces the VM (stop, then start).
+  - A matching warm VM is reused; otherwise the workload cold-boots.
+- Reconciler trims obsolete warm VMs and replenishes each spec's configured minimum,
+  capped by its maximum and the global `max_vms` limit.
+- Jobs (`lifecycle: "job"`) never reserve warm capacity. Desired workloads take
+  priority over warm capacity. Failed starts remain desired and are retried.
+
+## Development and tests
+
+```sh
+mix deps.get
+mix test
+mix format --check-formatted
+```
+
+Tests use an in-memory SQLite database per test, the mock VM backend, no mock
+sleep delays, and manually triggered reconciliation passes. They do not start
+an HTTP listener, read `config/desired_vms.exs`, create TAP interfaces, or launch
+hypervisors. API tests call the Plug router directly. The test processes use
+registered names, so control-plane tests run with `async: false`.
+
+To use the mock backend for an interactive development session, add this to
+`config/dev.exs`:
+
+```elixir
+import Config
+
+config :fc_ex_cp,
+  vm_module: FcExCp.VMMock,
+  firecracker_impl: FcExCp.Firecracker.Mock,
+  mock_delay: false
+```
+
+The default backend module remains `FcExCp.VM`. The `FC_BACKEND` setting selects
+its hypervisor; it does not enable mocking. `db_path` configures the SQLite file
+(default `my-db.sql3`), and `desired_vms_config: nil` disables startup seeding.
+
+Provisioning currently executes synchronously inside PoolManager. Spec or tenant
+updates replace the running VM with downtime; rolling updates are not implemented.
+A desired job that exits is recreated on the next reconciliation pass, so completed
+one-shot jobs must be removed from desired state until completion tracking exists.

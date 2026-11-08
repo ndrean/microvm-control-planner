@@ -23,5 +23,4 @@ ex_cp-*.tar
 /docs/
 /.elixir_ls/
 .DS_STORE
-/test/
 my-db.*

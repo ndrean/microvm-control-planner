@@ -1,7 +1,6 @@
 defmodule FcExCp.SpecHash do
   @moduledoc """
-  Generates stable hashes for VM specs to identify identical configurations.
-  Two VMs with the same spec should produce the same hash.
+  Identifies equivalent VM specifications from Elixir config or JSON requests.
   """
 
   def hash(spec) when is_map(spec) do
@@ -11,10 +10,10 @@ defmodule FcExCp.SpecHash do
     |> Integer.to_string(16)
   end
 
-  defp normalize(spec) do
-    # Sort keys to ensure consistent hashing regardless of insertion order
-    spec
-    |> Enum.sort()
-    |> Enum.into(%{})
+  def normalize(value) when is_map(value) do
+    Map.new(value, fn {key, nested} -> {to_string(key), normalize(nested)} end)
   end
+
+  def normalize(value) when is_list(value), do: Enum.map(value, &normalize/1)
+  def normalize(value), do: value
 end

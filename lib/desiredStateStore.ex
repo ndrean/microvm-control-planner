@@ -148,6 +148,9 @@ defmodule FcExCp.DesiredStateStore do
     {:noreply, st}
   end
 
+  @impl true
+  def terminate(_reason, st), do: Exqlite.Sqlite3.close(st.conn)
+
   defp read_all_rows(conn, stmt, acc) do
     case Exqlite.Sqlite3.step(conn, stmt) do
       {:row, row} -> read_all_rows(conn, stmt, [row | acc])
@@ -159,6 +162,10 @@ defmodule FcExCp.DesiredStateStore do
     config_path =
       Application.get_env(:fc_ex_cp, :desired_vms_config, @default_config_path)
 
+    if is_nil(config_path), do: [], else: read_config_file(config_path)
+  end
+
+  defp read_config_file(config_path) do
     case File.read(config_path) do
       {:ok, content} ->
         case Code.eval_string(content) do

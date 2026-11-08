@@ -61,11 +61,15 @@ Where:
 ```elixir
 warm_pool: %{
   min: 1,  # Minimum warm VMs to maintain
-  max: 3   # Maximum warm VMs allowed (future use)
+  max: 3   # Maximum warm VMs allowed
 }
 ```
 
 **If `warm_pool` is not specified or `min: 0`, no warm VMs are maintained.**
+Workloads still cold-boot. Jobs never reserve warm VMs, even if a warm policy is
+provided. The target is `min(min, max)`; omitted `max` defaults to `min`.
+Identical specs share a pool. The global `max_vms` limit covers running and warm
+VMs, with running workloads taking priority. Obsolete warm VMs are stopped.
 
 ### Example: Multi-VM Configuration
 
@@ -154,7 +158,7 @@ curl -X POST http://localhost:8088/vms \
 
 **Use for:** On-demand scaling, dynamic workloads
 
-**UPSERT Behavior**: If you POST with an existing `job_id`, the spec will be **replaced** (not merged). The VM will be updated to match the new spec.
+**UPSERT Behavior**: If you POST with an existing `job_id`, the spec will be **replaced** (not merged). A changed spec or tenant replaces the VM (stop, then start), with downtime. An unchanged request retains the current VM.
 
 ### Unified Behavior
 
@@ -162,9 +166,10 @@ Both methods update the **same desired state** (SQLite database). The reconciler
 
 **Response Codes:**
 
-- `201 Created` - Warm VM was available, provisioned instantly
-- `202 Accepted` - No warm VM yet, reconciler will provision in 1-2 seconds
-- `503 Service Unavailable` - System error (shouldn't happen in normal operation)
+- `201 Created` - VM provisioned from warm capacity or a synchronous cold boot
+- `202 Accepted` - Capacity is full; desired state is retained and retried
+- `400 Bad Request` - Invalid identifier, tenant, or non-object spec
+- `503 Service Unavailable` - Provisioning failed; desired state is retained for retry
 
 **Note:** HTTP API changes persist across restarts!
 

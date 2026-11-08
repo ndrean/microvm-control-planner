@@ -479,7 +479,7 @@ defmodule FcExCp.VM do
         raise "health timeout for #{url} after #{attempts} attempts"
       end
 
-      case Finch.build(:get, url) |> Finch.request(MyFinch) do
+      case Req.get(url, retry: false, receive_timeout: 1_000, connect_options: [timeout: 1_000]) do
         {:ok, %{status: 200}} ->
           :ok
 
@@ -511,8 +511,12 @@ defmodule FcExCp.VM do
 
   defp default_backend do
     case System.get_env("FC_BACKEND") do
-      "firecracker" -> :firecracker
-      "cloud_hypervisor" -> :cloud_hypervisor
+      "firecracker" ->
+        :firecracker
+
+      "cloud_hypervisor" ->
+        :cloud_hypervisor
+
       _ ->
         # Fall back to OS detection
         case :os.type() do

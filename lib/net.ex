@@ -77,15 +77,59 @@ defmodule FcExCp.Net do
     subnet = subnet_cidr()
 
     # MASQUERADE rule
-    sh!("iptables", ["-t", "nat", "-C", "POSTROUTING", "-s", subnet, "-o", out, "-j", "MASQUERADE"], allow_fail: true)
-    sh!("iptables", ["-t", "nat", "-A", "POSTROUTING", "-s", subnet, "-o", out, "-j", "MASQUERADE"], allow_fail: true)
+    sh!(
+      "iptables",
+      ["-t", "nat", "-C", "POSTROUTING", "-s", subnet, "-o", out, "-j", "MASQUERADE"],
+      allow_fail: true
+    )
+
+    sh!(
+      "iptables",
+      ["-t", "nat", "-A", "POSTROUTING", "-s", subnet, "-o", out, "-j", "MASQUERADE"],
+      allow_fail: true
+    )
 
     # FORWARD rules
     sh!("iptables", ["-C", "FORWARD", "-i", bridge, "-o", out, "-j", "ACCEPT"], allow_fail: true)
     sh!("iptables", ["-A", "FORWARD", "-i", bridge, "-o", out, "-j", "ACCEPT"], allow_fail: true)
 
-    sh!("iptables", ["-C", "FORWARD", "-i", out, "-o", bridge, "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT"], allow_fail: true)
-    sh!("iptables", ["-A", "FORWARD", "-i", out, "-o", bridge, "-m", "state", "--state", "RELATED,ESTABLISHED", "-j", "ACCEPT"], allow_fail: true)
+    sh!(
+      "iptables",
+      [
+        "-C",
+        "FORWARD",
+        "-i",
+        out,
+        "-o",
+        bridge,
+        "-m",
+        "state",
+        "--state",
+        "RELATED,ESTABLISHED",
+        "-j",
+        "ACCEPT"
+      ],
+      allow_fail: true
+    )
+
+    sh!(
+      "iptables",
+      [
+        "-A",
+        "FORWARD",
+        "-i",
+        out,
+        "-o",
+        bridge,
+        "-m",
+        "state",
+        "--state",
+        "RELATED,ESTABLISHED",
+        "-j",
+        "ACCEPT"
+      ],
+      allow_fail: true
+    )
 
     Logger.info("Host network ready: bridge=#{bridge} cidr=#{cidr} out=#{out}")
     :ok
@@ -106,7 +150,12 @@ defmodule FcExCp.Net do
   end
 
   defp detect_outbound_iface_linux! do
-    {out, 0} = System.cmd("sh", ["-c", "ip route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i==\"dev\"){print $(i+1); exit}}'"])
+    {out, 0} =
+      System.cmd("sh", [
+        "-c",
+        "ip route get 1.1.1.1 | awk '{for(i=1;i<=NF;i++) if($i==\"dev\"){print $(i+1); exit}}'"
+      ])
+
     String.trim(out)
   end
 

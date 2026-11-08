@@ -3,7 +3,14 @@ defmodule FcExCp.Application do
 
   @impl true
   def start(_type, _args) do
-    children = [
+    children =
+      if Application.get_env(:fc_ex_cp, :start_control_plane, true), do: children(), else: []
+
+    Supervisor.start_link(children, strategy: :one_for_one, name: FcExCp.Supervisor)
+  end
+
+  defp children do
+    [
       # {TelemetryMetricsPrometheus.Core,
       #  [
       #    metrics: FcExCp.Metrics.metrics()
@@ -18,7 +25,7 @@ defmodule FcExCp.Application do
       #  name: :fc_ex_cp_poller},
       # VM registry
       {Registry, keys: :unique, name: FcExCp.Registry},
-      {FcExCp.DesiredStateStore, ["my-db.sql3"]},
+      {FcExCp.DesiredStateStore, [Application.get_env(:fc_ex_cp, :db_path, "my-db.sql3")]},
       # VM supervisor
       {DynamicSupervisor, name: FcExCp.VMSup, strategy: :one_for_one},
       # {Task, fn -> FcExCp.Net.ensure_host_network!() end},
@@ -32,7 +39,5 @@ defmodule FcExCp.Application do
          port: FcExCp.Config.listen_port()
        ]}
     ]
-
-    Supervisor.start_link(children, strategy: :one_for_one, name: FcExCp.Supervisor)
   end
 end

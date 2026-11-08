@@ -132,6 +132,7 @@ defmodule Mix.Tasks.Fc.Build do
   defp parse_cmd(cmd), do: String.split(cmd, " ", trim: true)
 
   defp parse_env(nil), do: %{}
+
   defp parse_env(env_list) do
     env_list
     |> Enum.map(fn env ->
